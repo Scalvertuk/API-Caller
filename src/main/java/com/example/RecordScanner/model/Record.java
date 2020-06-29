@@ -32,6 +32,12 @@ public class Record {
     private static Double LAT_MIN = 50.66801;
     private static Double LAT_MAX = 52.34801;
 
+    //Sets the radians and earths radius to be used later in calculations
+    private static Double LonRadLat = Math.toRadians(51.5074);
+    private static Double LonRadLon = Math.toRadians(0.1278);
+    private static Double EarthRadius = 3956.077;
+
+
     //Creates the array list that stores the values read from the urls
     public static ArrayList<JSONObject> longFiltered = new ArrayList();
 
@@ -73,38 +79,62 @@ private static String readAll(Reader rd) throws IOException {
         JSONArray users = readJsonFromUrl(url);
         JSONArray cityUsers = readJsonFromUrl(cityUrl);
 
-        //For loop to itereate through each object and determine if it sits within the boundry box
+        //For loop to iterate through each object and determine if it sits within the boundry box
         for (int i =0; i < users.length(); i++){
             JSONObject data = users.getJSONObject(i);
             double LAT = data.getDouble("latitude");
             double LONG = data.getDouble("longitude");
+
 //First takes latitude
             if (LAT_MIN < LAT && LAT < LAT_MAX){
-//then checks longitude
+
+//then checks longitude to create a square area that the user could be in. Known as a bounding box
                 if ( LONG > NEG_LONG && LONG < LONG_MAX) {
                     JSONObject another = users.getJSONObject(i);
-                    //provided they match the statement the users will be added to the array list
+
+                    //This will check if the users is within a 50 mile radius from the geographical centre of London
+                    //Gets the longitude and latitude of the refined user array
+                    double lat = another.getDouble("latitude");
+                    double lon = another.getDouble("longitude");
+
+                    //Converts the latitude and longitude to radians
+                    Double latRad = Math.toRadians(lat);
+                    Double lonRad =Math.toRadians(lon);
+                    Double raddifLat = latRad - LonRadLat;
+                    Double raddifLon = lonRad - LonRadLon;
+
+                    //Finds the radian calculation ratio distance between the two points
+                    double radDistance = Math.pow(Math.sin(raddifLat / 2), 2)
+                            + Math.cos(LonRadLat) * Math.cos(lonRad)
+                            * Math.pow(Math.sin(raddifLon / 2),2);
+                    double conv = 2 * Math.asin(Math.sqrt(radDistance));
+
+                    //Multiplies the ratio to the earth radius to get an answer in miles
+                    Double distanceFromLondon = conv * EarthRadius;
+
+                    //If the distance is less that 50 miles they will be added to the array
+                    if (distanceFromLondon<50) {
+                        //provided they match the statement the users will be added to the array list
                         longFiltered.add(another);
-
-
-
+                    }
                 }
-                else{ }
+
 
             }
-            else{ }
+
         }
         //does the same for city users
     //does not require if statement as the url will specify london only
        for (int i = 0; i < cityUsers.length(); i++){
             JSONObject cityData = cityUsers.getJSONObject(i);
+
                longFiltered.add(cityData);
         }
        //adds the people to the array
         JSONObject[] json = new JSONObject[longFiltered.size()];
         longFiltered.toArray(json);
-        //USED FOR TESTING PURPOSES TO CHECK IF THE DATA HAS BEEN RECIEVED CORRECTLY
-        System.out.println("FILTERED JSON LONG + LAT " + longFiltered + "\n" + NEG_LONG);
+        //USED FOR TESTING PURPOSES TO CHECK IF THE DATA HAS BEEN RECEIVED CORRECTLY
+    //    System.out.println("FILTERED JSON LONG + LAT " + longFiltered + "\n" + NEG_LONG);
 
     //returns array
         return longFiltered;
